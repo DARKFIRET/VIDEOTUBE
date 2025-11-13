@@ -5,8 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { mockUsers, setCurrentUser } from "@/data/mockData";
-import { User } from "@/types/video";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -14,28 +12,50 @@ export default function RegisterPage() {
   const [description, setDescription] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [avatar, setAvatar] = useState<File | null>(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
-    if (mockUsers.find((u) => u.email === email)) {
-      setError("Email already exists");
-      return;
+    try {
+      const formData = new FormData();
+      formData.append("channel_description", description);
+      formData.append("channel_name", channelName);
+      formData.append("email", email);
+      formData.append("password", password);
+      if (avatar) {
+        formData.append("profile_picture", avatar);
+      } else {
+        formData.append("profile_picture", ""); // nullable
+      }
+
+      const response = await fetch("http://127.0.0.1:8000/api/register", {
+        method: "POST",
+        body: formData, // отправляем FormData вместо JSON
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Ошибка регистрации");
+      }
+
+      const data = await response.json();
+
+      // ✅ Сохраняем токен
+      if (data.token) {
+        localStorage.setItem("token", `${data.token}`);
+      }
+
+      navigate("/"); // переход на главную
+    } catch (err: any) {
+      setError(err.message || "Произошла ошибка при регистрации");
+    } finally {
+      setLoading(false);
     }
-
-    const newUser: User = {
-      id: `user${Date.now()}`,
-      name: channelName,
-      email,
-      description,
-      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${channelName}`
-    };
-
-    mockUsers.push(newUser);
-    setCurrentUser(newUser);
-    navigate("/");
   };
 
   return (
@@ -54,6 +74,7 @@ export default function RegisterPage() {
             Создайте свой канал
           </CardDescription>
         </CardHeader>
+
         <form onSubmit={handleRegister}>
           <CardContent className="space-y-4">
             {error && (
@@ -61,6 +82,7 @@ export default function RegisterPage() {
                 {error}
               </div>
             )}
+
             <div className="space-y-2">
               <Label htmlFor="channelName">Название канала</Label>
               <Input
@@ -72,6 +94,7 @@ export default function RegisterPage() {
                 required
               />
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="description">Описание канала</Label>
               <Textarea
@@ -82,6 +105,7 @@ export default function RegisterPage() {
                 rows={3}
               />
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -93,6 +117,7 @@ export default function RegisterPage() {
                 required
               />
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="password">Пароль</Label>
               <Input
@@ -105,10 +130,21 @@ export default function RegisterPage() {
                 minLength={6}
               />
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="avatar">Аватар (опционально)</Label>
+              <Input
+                id="avatar"
+                type="file"
+                accept="image/*"
+                onChange={(e) => setAvatar(e.target.files?.[0] || null)}
+              />
+            </div>
           </CardContent>
+
           <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full">
-              Зарегистрироваться
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Регистрация..." : "Зарегистрироваться"}
             </Button>
             <div className="text-sm text-center text-gray-600">
               Уже есть аккаунт?{" "}

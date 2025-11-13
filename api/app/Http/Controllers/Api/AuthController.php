@@ -14,16 +14,15 @@ use Illuminate\Support\Facades\Storage; // <--- Для работы с файл�
 
 class AuthController extends Controller
 {
-    /**
-     * Регистрация нового пользователя
-     */
     public function register(RegisterRequest $request)
     {
-        // 1. Валидация уже прошла через RegisterRequest
+        // 1. Валидация прошла
 
-        // 2. Сохранение картинки
-        // Файл будет сохранен в 'storage/app/public/profile_pictures'
-        $path = $request->file('profile_picture')->store('profile_pictures', 'public');
+        // 2. Сохранение картинки (если передана)
+        $path = null;
+        if ($request->hasFile('profile_picture')) {
+            $path = $request->file('profile_picture')->store('profile_pictures', 'public');
+        }
 
         // 3. Создание пользователя
         $user = User::create([
@@ -31,16 +30,16 @@ class AuthController extends Controller
             'channel_description' => $request->channel_description,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'profile_picture_path' => $path, // Сохраняем путь к файлу
+            'profile_picture_path' => $path, // null или profile_pictures/abc.jpg
         ]);
 
         // 4. Создание токена
         $token = $user->createToken('api_token')->plainTextToken;
 
-        // 5. Возвращаем ответ
+        // 5. Ответ
         return response()->json([
             'message' => 'Регистрация прошла успешно',
-            'user' => new UserResource($user), // Используем ресурс
+            'user' => new UserResource($user),
             'token' => $token
         ], 201);
     }

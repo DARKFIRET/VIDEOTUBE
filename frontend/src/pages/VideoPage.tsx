@@ -1,168 +1,227 @@
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useState } from "react";
-import { mockVideos } from "@/data/mockData";
 import Header from "@/components/Header";
-import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ThumbsUp, ThumbsDown, Share2, Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Eye, Clock, ThumbsUp } from "lucide-react";
+
+interface VideoData {
+  id: number;
+  title: string;
+  description: string;
+  video_url: string;
+  poster_url: string;
+  views: number;
+  duration: string;
+  likes_count: number;
+  is_liked: boolean;
+  created_at: string;
+  user: {
+    id: number;
+    channel_name: string;
+    profile_picture_url: string;
+  };
+}
 
 export default function VideoPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const video = mockVideos.find((v) => v.id === id);
-  const [liked, setLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(video?.likeCount || 0);
+  const [video, setVideo] = useState<VideoData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [isLiking, setIsLiking] = useState(false);
 
-  if (!video) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <div className="container mx-auto px-4 py-8">
-          <p className="text-center text-gray-600">Video not found</p>
-        </div>
-      </div>
-    );
-  }
+  const token = localStorage.getItem("token");
+  const getAuthHeader = () => {
+    if (!token) return null;
+    const cleanToken = token.startsWith("Bearer ") ? token.slice(7) : token;
+    return `Bearer ${cleanToken}`;
+  };
 
-  const formatViews = (views: number) => {
-    if (views >= 1000000) {
-      return `${(views / 1000000).toFixed(1)}M`;
-    } else if (views >= 1000) {
-      return `${(views / 1000).toFixed(1)}K`;
+  useEffect(() => {
+    const authHeader = getAuthHeader();
+    if (!authHeader) {
+      navigate("/login");
+      return;
     }
-    return views.toString();
+
+    const fetchVideo = async () => {
+      try {
+        const res = await fetch(`http://127.0.0.1:8000/api/videos/${id}`, {
+          headers: {
+            Authorization: authHeader,
+            Accept: "application/json",
+          },
+        });
+
+        if (!res.ok) throw new Error("Видео не найдено");
+        const data = await res.json();
+        setVideo(data.data);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVideo();
+  }, [id, navigate]);
+
+  // Лайк / анлайк
+  const handleLike = async () => {
+    if (!video || isLiking) return;
+
+    const authHeader = getAuthHeader();
+    if (!authHeader) {
+      navigate("/login");
+      return;
+    }
+
+    setIsLiking(true);
+
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/api/videos/${video.id}/like`, {
+        method: "POST",
+        headers: {
+          Authorization: authHeader,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!res.ok) throw new Error("Ошибка лайка");
+
+      const result = await res.json();
+
+      setVideo((prev) =>
+        prev
+          ? {
+              ...prev,
+              is_liked: result.is_liked,
+              likes_count: result.likes_count,
+            }
+          : null
+      );
+    } catch (err) {
+      alert("Не удалось поставить лайк"); // ИСПРАВЛЕНО: — → (
+    } finally {
+      setIsLiking(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
+    return date.toLocaleDateString("ru-RU", {
       year: "numeric",
       month: "long",
       day: "numeric",
     });
   };
 
-  const handleLike = () => {
-    if (liked) {
-      setLikeCount(likeCount - 1);
-      setLiked(false);
-    } else {
-      setLikeCount(likeCount + 1);
-      setLiked(true);
-    }
+  const formatViews = (views: number) => {
+    if (views >= 1000000) return `${(views / 1000000).toFixed(1)} млн`;
+    if (views >= 1000) return `${(views / 1000).toFixed(1)} тыс.`;
+    return views.toString();
   };
 
-  const relatedVideos = mockVideos.filter((v) => v.id !== id).slice(0, 4);
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p>Загрузка видео...</p>
+      </div>
+    );
+  }
+
+  if (error || !video) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-500 mb-4">{error || "Видео не найдено"}</p>
+          <Button onClick={() => navigate(-1)}>Назад</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-      <main className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <div className="bg-black rounded-lg overflow-hidden aspect-video">
-              <video
-                src={video.videoUrl}
-                controls
-                className="w-full h-full"
-                poster={video.thumbnailUrl}
-              >
-                Your browser does not support the video tag.
-              </video>
+
+      <main className="container mx-auto px-4 py-6 max-w-5xl">
+        {/* Видеоплеер */}
+        <div className="bg-black rounded-lg overflow-hidden mb-6 aspect-video">
+          <video
+            src={video.video_url}
+            poster={video.poster_url}
+            controls
+            className="w-full h-full"
+            preload="metadata"
+          >
+            Ваш браузер не поддерживает видео.
+          </video>
+        </div>
+
+        {/* Заголовок и метаданные */}
+        <div className="bg-white rounded-lg p-6 mb-6">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
+            {video.title}
+          </h1>
+
+          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-4">
+            <div className="flex items-center gap-1">
+              <Eye className="w-4 h-4" />
+              <span>{formatViews(video.views)} просмотров</span>
             </div>
-
-            <div className="mt-4 bg-white rounded-lg p-4">
-              <h1 className="text-xl font-bold text-gray-900 mb-3">
-                {video.title}
-              </h1>
-
-              <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-                <div 
-                  className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
-                  onClick={() => navigate(`/channel/${video.userId}`)}
-                >
-                  <Avatar className="w-10 h-10">
-                    <AvatarImage src={video.channelAvatar} alt={video.channelName} />
-                    <AvatarFallback>{video.channelName[0]}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-semibold text-gray-900">{video.channelName}</p>
-                    <p className="text-sm text-gray-600">
-                      {formatViews(video.viewCount)} views • {formatDate(video.uploadDate)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant={liked ? "default" : "secondary"}
-                    size="sm"
-                    onClick={handleLike}
-                    className="gap-2"
-                  >
-                    <ThumbsUp className="h-4 w-4" />
-                    {formatViews(likeCount)}
-                  </Button>
-                  <Button variant="secondary" size="sm" className="gap-2">
-                    <ThumbsDown className="h-4 w-4" />
-                  </Button>
-                  <Button variant="secondary" size="sm" className="gap-2">
-                    <Share2 className="h-4 w-4" />
-                    Share
-                  </Button>
-                </div>
-              </div>
-
-              <Separator className="my-4" />
-
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Eye className="h-4 w-4 text-gray-600" />
-                  <span className="font-semibold text-sm text-gray-900">
-                    {formatViews(video.viewCount)} views
-                  </span>
-                  <span className="text-sm text-gray-600">
-                    {formatDate(video.uploadDate)}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                  {video.description}
-                </p>
-              </div>
+            <div className="flex items-center gap-1">
+              <Clock className="w-4 h-4" />
+              <span>{formatDate(video.created_at)}</span>
             </div>
           </div>
 
-          <div className="lg:col-span-1">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900">Related Videos</h2>
-            <div className="space-y-3">
-              {relatedVideos.map((relatedVideo) => (
-                <div
-                  key={relatedVideo.id}
-                  className="flex gap-2 cursor-pointer hover:bg-white p-2 rounded-lg transition-colors"
-                  onClick={() => navigate(`/video/${relatedVideo.id}`)}
-                >
-                  <div className="relative w-40 flex-shrink-0 aspect-video rounded-lg overflow-hidden bg-gray-100">
-                    <img
-                      src={relatedVideo.thumbnailUrl}
-                      alt={relatedVideo.title}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-sm line-clamp-2 mb-1 text-gray-900">
-                      {relatedVideo.title}
-                    </h3>
-                    <p className="text-xs text-gray-600">{relatedVideo.channelName}</p>
-                    <p className="text-xs text-gray-600">
-                      {formatViews(relatedVideo.viewCount)} views
-                    </p>
-                  </div>
-                </div>
-              ))}
+          {/* Кнопка лайка */}
+          <div className="flex items-center gap-2 mb-4">
+            <Button
+              variant={video.is_liked ? "default" : "outline"}
+              size="sm"
+              onClick={handleLike}
+              disabled={isLiking}
+              className="flex items-center gap-1.5"
+            >
+              <ThumbsUp
+                className="w-4 h-4"
+                fill={video.is_liked ? "currentColor" : "none"}
+              />
+              <span>{video.likes_count}</span>
+            </Button>
+          </div>
+
+          <Separator className="my-4" />
+
+          {/* Автор */}
+          <div className="flex items-center gap-4">
+            <Avatar className="w-12 h-12">
+              <AvatarImage
+                src={`http://127.0.0.1:8000${video.user.profile_picture_url}`}
+                alt={video.user.channel_name}
+              />
+              <AvatarFallback>{video.user.channel_name[0]}</AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="font-semibold text-gray-900">
+                {video.user.channel_name}
+              </p>
+              <p className="text-sm text-gray-600">Канал</p>
             </div>
           </div>
         </div>
+
+        {/* Описание */}
+        {video.description && (
+          <div className="bg-white rounded-lg p-6">
+            <h2 className="text-lg font-semibold mb-3">Описание</h2>
+            <p className="text-gray-700 whitespace-pre-wrap">{video.description}</p>
+          </div>
+        )}
       </main>
     </div>
   );

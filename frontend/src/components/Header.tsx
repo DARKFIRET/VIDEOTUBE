@@ -2,9 +2,23 @@ import { Menu, Search, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 
 export default function Header() {
   const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    // Проверяем, есть ли токен при загрузке компонента
+    const token = localStorage.getItem("token");
+    setIsAuthenticated(!!token);
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    setIsAuthenticated(false);
+    navigate("/login");
+  };
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
@@ -13,6 +27,7 @@ export default function Header() {
           <Button variant="ghost" size="icon" className="md:hidden">
             <Menu className="h-5 w-5" />
           </Button>
+
           <div
             className="flex items-center gap-1 cursor-pointer"
             onClick={() => navigate("/")}
@@ -58,13 +73,25 @@ export default function Header() {
           >
             <User className="h-5 w-5" />
           </Button>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => navigate("/login")}
-          >
-            Войти
-          </Button>
+
+          {isAuthenticated ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLogout}
+              className="text-red-600 border-red-300 hover:bg-red-50"
+            >
+              Выйти
+            </Button>
+          ) : (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => navigate("/login")}
+            >
+              Войти
+            </Button>
+          )}
         </div>
       </div>
     </header>

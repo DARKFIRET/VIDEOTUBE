@@ -1,80 +1,84 @@
-import { Video } from "@/types/video";
-import { Card } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Card, CardContent } from "@/components/ui/card";
+import { Play, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface VideoCardProps {
-  video: Video;
+  video: {
+    id: number;
+    title: string;
+    poster_url: string; // УЖЕ ПОЛНЫЙ URL: http://127.0.0.1:8000/storage/posters/...
+    duration?: string;
+    created_at?: string;
+  };
 }
 
 export default function VideoCard({ video }: VideoCardProps) {
   const navigate = useNavigate();
 
-  const formatViews = (views: number) => {
-    if (views >= 1000000) {
-      return `${(views / 1000000).toFixed(1)}M`;
-    } else if (views >= 1000) {
-      return `${(views / 1000).toFixed(1)}K`;
-    }
-    return views.toString();
-  };
+  // БЕРЁМ poster_url КАК ЕСТЬ — НЕ ДОБАВЛЯЕМ НИЧЕГО!
+  const posterUrl = video.poster_url || "https://via.placeholder.com/320x180.png?text=Нет+постера";
 
-  const formatDate = (dateString: string) => {
+  // Форматируем "1 ч. назад", "3 д. назад"
+  const formatTimeAgo = (dateString?: string): string => {
+    if (!dateString) return "Недавно";
     const date = new Date(dateString);
     const now = new Date();
-    const diffTime = Math.abs(now.getTime() - date.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffDays === 1) return "1 day ago";
-    if (diffDays < 7) return `${diffDays} days ago`;
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-    if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
-    return `${Math.floor(diffDays / 365)} years ago`;
+    if (diffMins < 1) return "Только что";
+    if (diffMins < 60) return `${diffMins} мин. назад`;
+    if (diffHours < 24) return `${diffHours} ч. назад`;
+    if (diffDays < 7) return `${diffDays} д. назад`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} нед. назад`;
+    if (diffDays < 365) return `${Math.floor(diffDays / 30)} мес. назад`;
+    return `${Math.floor(diffDays / 365)} г. назад`;
   };
 
   return (
     <Card
-      className="cursor-pointer hover:shadow-lg transition-shadow duration-200 overflow-hidden border-0 bg-white"
+      className="overflow-hidden hover:shadow-xl transition-all duration-200 cursor-pointer group border-0"
       onClick={() => navigate(`/video/${video.id}`)}
     >
-      <div className="relative aspect-video overflow-hidden bg-gray-100">
+      {/* Обложка */}
+      <div className="relative aspect-video bg-gray-100">
         <img
-          src={video.thumbnailUrl}
+          src={posterUrl}
           alt={video.title}
-          className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+          className="w-full h-full object-cover"
+          loading="lazy"
+          onError={(e) => {
+            const target = e.currentTarget;
+            target.src = "https://via.placeholder.com/320x180.png?text=Ошибка";
+            console.warn("Poster load failed:", posterUrl);
+          }}
         />
-      </div>
-      <div className="p-3">
-        <div className="flex gap-3">
-          <Avatar 
-            className="w-9 h-9 flex-shrink-0 cursor-pointer"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/channel/${video.userId}`);
-            }}
-          >
-            <AvatarImage src={video.channelAvatar} alt={video.channelName} />
-            <AvatarFallback>{video.channelName[0]}</AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-sm line-clamp-2 mb-1 text-gray-900">
-              {video.title}
-            </h3>
-            <p 
-              className="text-xs text-gray-600 mb-1 hover:text-gray-900 cursor-pointer"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(`/channel/${video.userId}`);
-              }}
-            >
-              {video.channelName}
-            </p>
-            <p className="text-xs text-gray-600">
-              {formatViews(video.viewCount)} views • {formatDate(video.uploadDate)}
-            </p>
-          </div>
+
+        {/* Play иконка при наведении */}
+        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity flex items-center justify-center">
+          <Play className="w-12 h-12 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
         </div>
+
+        {/* Длительность */}
+        {video.duration && (
+          <span className="absolute bottom-2 right-2 bg-black bg-opacity-80 text-white text-xs font-medium px-1.5 py-0.5 rounded">
+            {video.duration}
+          </span>
+        )}
       </div>
+
+      {/* Инфо */}
+      <CardContent className="p-3">
+        <h3 className="font-semibold text-sm line-clamp-2 leading-tight mb-1">
+          {video.title}
+        </h3>
+        <div className="flex items-center gap-1 text-xs text-gray-500">
+          <Clock className="w-3.5 h-3.5" />
+          <span>{formatTimeAgo(video.created_at)}</span>
+        </div>
+      </CardContent>
     </Card>
   );
 }

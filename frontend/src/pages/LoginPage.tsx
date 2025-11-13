@@ -4,24 +4,46 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { mockUsers, setCurrentUser } from "@/data/mockData";
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
-    const user = mockUsers.find((u) => u.email === email);
-    if (user) {
-      setCurrentUser(user);
+    try {
+      const response = await fetch("http://127.0.0.1:8000/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Ошибка входа");
+      }
+
+      const data = await response.json();
+
+      // ✅ Сохраняем токен
+      if (data.token) {
+        localStorage.setItem("token", `${data.token}`);
+      }
+
+      // ✅ Переход на главную страницу
       navigate("/");
-    } else {
-      setError("Invalid email or password");
+    } catch (err: any) {
+      setError(err.message || "Произошла ошибка при входе");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -41,6 +63,7 @@ export default function LoginPage() {
             Войдите в свой аккаунт
           </CardDescription>
         </CardHeader>
+
         <form onSubmit={handleLogin}>
           <CardContent className="space-y-4">
             {error && (
@@ -71,9 +94,10 @@ export default function LoginPage() {
               />
             </div>
           </CardContent>
+
           <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full">
-              Войти
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Входим..." : "Войти"}
             </Button>
             <div className="text-sm text-center text-gray-600">
               Нет аккаунта?{" "}
