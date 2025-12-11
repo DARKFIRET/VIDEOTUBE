@@ -16,14 +16,14 @@ class UserResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id'                  => $this->id,
-            'channel_name'        => $this->channel_name,
-            'email'               => $this->email,
+            'id' => $this->id,
+            'channel_name' => $this->channel_name,
+            'email' => $this->email,
             'channel_description' => $this->channel_description,
 
             // Полный публичный URL к аватарке (или null, если не загружена)
             'profile_picture_url' => $this->profile_picture_path
-                ? Storage::url($this->profile_picture_path)
+                ? asset('storage/' . $this->profile_picture_path)
                 : null,
 
 

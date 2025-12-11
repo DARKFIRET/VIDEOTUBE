@@ -11,7 +11,7 @@ class VideoResource extends JsonResource
 {
     public function toArray($request): array
     {
-        $user = $request->user();
+        $user = $request->user('sanctum');
 
         // Вычисляем длительность ТОЛЬКО для одного видео (show), НЕ для коллекции
         $duration = null;

@@ -9,7 +9,13 @@ interface VideoCardProps {
     poster_url: string; // УЖЕ ПОЛНЫЙ URL: http://127.0.0.1:8000/storage/posters/...
     duration?: string;
     created_at?: string;
+    user?: {
+      id: number;
+      channel_name: string;
+      profile_picture_url?: string;
+    };
   };
+  onClick?: () => void;
 }
 
 export default function VideoCard({ video }: VideoCardProps) {
@@ -35,6 +41,13 @@ export default function VideoCard({ video }: VideoCardProps) {
     if (diffDays < 30) return `${Math.floor(diffDays / 7)} нед. назад`;
     if (diffDays < 365) return `${Math.floor(diffDays / 30)} мес. назад`;
     return `${Math.floor(diffDays / 365)} г. назад`;
+  };
+
+  const handleChannelClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (video.user?.id) {
+      navigate(`/channel/${video.user.id}`);
+    }
   };
 
   return (
@@ -74,6 +87,34 @@ export default function VideoCard({ video }: VideoCardProps) {
         <h3 className="font-semibold text-sm line-clamp-2 leading-tight mb-1">
           {video.title}
         </h3>
+
+        {video.user && (
+          <div
+            className="flex items-center gap-2 mb-2 mt-2 w-fit cursor-pointer group/channel"
+            onClick={handleChannelClick}
+          >
+            <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
+              {video.user.profile_picture_url ? (
+                <img
+                  src={video.user.profile_picture_url}
+                  alt={video.user.channel_name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-gray-500">
+                  {video.user.channel_name[0]}
+                </div>
+              )}
+            </div>
+            <div
+              className="text-xs text-gray-600 group-hover/channel:text-gray-900 font-medium transition-colors"
+              title={video.user.channel_name}
+            >
+              {video.user.channel_name}
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center gap-1 text-xs text-gray-500">
           <Clock className="w-3.5 h-3.5" />
           <span>{formatTimeAgo(video.created_at)}</span>

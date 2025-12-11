@@ -96,10 +96,10 @@ export default function VideoPage() {
       setVideo((prev) =>
         prev
           ? {
-              ...prev,
-              is_liked: result.is_liked,
-              likes_count: result.likes_count,
-            }
+            ...prev,
+            is_liked: result.is_liked,
+            likes_count: result.likes_count,
+          }
           : null
       );
     } catch (err) {
@@ -149,13 +149,31 @@ export default function VideoPage() {
 
       <main className="container mx-auto px-4 py-6 max-w-5xl">
         {/* Видеоплеер */}
-        <div className="bg-black rounded-lg overflow-hidden mb-6 aspect-video">
+        <div className="bg-black rounded-xl overflow-hidden mb-6 aspect-video shadow-2xl relative group">
           <video
             src={video.video_url}
             poster={video.poster_url}
             controls
-            className="w-full h-full"
+            className="w-full h-full object-contain"
             preload="metadata"
+            onTimeUpdate={(e) => {
+              const target = e.currentTarget;
+              const percent = target.currentTime / target.duration;
+
+              // Если просмотрено более 50% и просмотр ещё не засчитан
+              if (percent > 0.5 && !sessionStorage.getItem(`viewed_${video.id}`)) {
+                sessionStorage.setItem(`viewed_${video.id}`, "true");
+
+                // Отправляем запрос на инкремент
+                fetch(`http://127.0.0.1:8000/api/videos/${video.id}/view`, {
+                  method: "POST",
+                }).then(res => res.json()).then(data => {
+                  if (data.views) {
+                    setVideo(prev => prev ? ({ ...prev, views: data.views }) : null);
+                  }
+                }).catch(console.error);
+              }
+            }}
           >
             Ваш браузер не поддерживает видео.
           </video>
@@ -198,7 +216,10 @@ export default function VideoPage() {
           <Separator className="my-4" />
 
           {/* Автор */}
-          <div className="flex items-center gap-4">
+          <div
+            className="flex items-center gap-4 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => navigate(`/channel/${video.user.id}`)}
+          >
             <Avatar className="w-12 h-12">
               <AvatarImage
                 src={`http://127.0.0.1:8000${video.user.profile_picture_url}`}

@@ -47,10 +47,10 @@ class VideoController extends Controller
         $posterPath = $request->file('poster')->store('posters', 'public');
 
         $video = Video::create([
-            'user_id'     => auth()->id() ?? 1,
-            'title'       => $data['title'],
+            'user_id' => auth()->id() ?? 1,
+            'title' => $data['title'],
             'description' => $data['description'] ?? null,
-            'video_path'  => $videoPath,
+            'video_path' => $videoPath,
             'poster_path' => $posterPath,
         ]);
 
@@ -60,8 +60,15 @@ class VideoController extends Controller
     public function show($id)
     {
         $video = Video::findOrFail($id);
-        $video->increment('views');
+        // $video->increment('views'); // Убрали авто-инкремент
         return new VideoResource($video->load('user'));
+    }
+
+    public function incrementView($id)
+    {
+        $video = Video::findOrFail($id);
+        $video->increment('views');
+        return response()->json(['views' => $video->views]);
     }
 
     public function update(UpdateVideoRequest $request, $id)
@@ -87,7 +94,7 @@ class VideoController extends Controller
         }
 
         $video->update([
-            'title'       => $data['title'] ?? $video->title,
+            'title' => $data['title'] ?? $video->title,
             'description' => $data['description'] ?? $video->description,
         ]);
 

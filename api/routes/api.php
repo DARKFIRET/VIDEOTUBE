@@ -11,14 +11,21 @@ Route::get('/', fn() => "test");
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
-Route::middleware('auth:sanctum')->get('/user', fn(Request $request) =>
-new \App\Http\Resources\UserResource($request->user())
+Route::middleware('auth:sanctum')->get(
+    '/user',
+    fn(Request $request) =>
+    new \App\Http\Resources\UserResource($request->user())
 );
 
 // === ВИДЕО ===
 
 Route::get('/videos', [VideoController::class, 'index']);
 Route::get('/videos/{id}', [VideoController::class, 'show'])->where('id', '[0-9]+');
+
+// === КАНАЛЫ ===
+Route::get('/channels/{id}', [\App\Http\Controllers\Api\ChannelController::class, 'show'])->where('id', '[0-9]+');
+Route::get('/channels/{id}/videos', [\App\Http\Controllers\Api\ChannelController::class, 'videos'])->where('id', '[0-9]+');
+
 
 // === Создание видео (открыто для теста) ===
 
@@ -30,3 +37,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/videos/{id}', [VideoController::class, 'destroy'])->where('id', '[0-9]+');
     Route::post('/videos/{id}/like', [VideoController::class, 'like'])->where('id', '[0-9]+');
 });
+
+// Просмотры (можно публично)
+Route::post('/videos/{id}/view', [VideoController::class, 'incrementView'])->where('id', '[0-9]+');
